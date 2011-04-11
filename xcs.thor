@@ -161,7 +161,7 @@ class Xcs < Thor
   desc 'add File [Group]',  'Add file to a group. By default adds to "Source"'
   def add(path, group)
     open_project
-    @proxy.add(File.absolute_path(path), group)
+    @proxy.add(File.expand_path(path), group)
     @proxy.close 
   end
 
