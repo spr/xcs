@@ -125,7 +125,8 @@ private
       elsif item_class == :file_reference then
         print_fileref(item, verbose, indent + 1)
       else
-        p item_class
+        print "  " * (indent+1)
+        puts "ERROR: Unknown item class: #{item_class}"
       end
     end
   end
