@@ -11,6 +11,7 @@ class XcodeProxy
     mac_path.sub!(/^\//, '')
     mac_path.gsub!(/\//, ':')
     @app = Appscript.app('Xcode')
+    @version = @app.version.get.split('.')[0].to_i
     @app.open(mac_path)
     prjs = @app.projects.get
     prjs.each do |pr|
@@ -22,7 +23,10 @@ class XcodeProxy
   end
 
   def close
-    @app.project_documents[@project_document].close
+    # close does not work for Xcode4
+    if @version == 3 then
+        @app.project_documents[@project_document].close
+    end
   end
 
   def list(verbose = false)
@@ -33,10 +37,11 @@ class XcodeProxy
   def add(path, group)
     root_group = @app.projects[@project].root_group
     group_ref = find_group(root_group, group)
+    p group_ref
     if group_ref != nil then
       file = File.basename(path)
       file_ref = group_ref.make(
-        :new => :file_reference,
+        :new => :Xcode_3_file_reference,
         :with_properties => {
           :name => file,
           :full_path => path
@@ -46,7 +51,7 @@ class XcodeProxy
         compilable = %w[.cpp .c .C .m .mm]
         compilable.each do |ext|
           if path =~ /#{ext}$/ then
-            file_ref.add(:to => @app.projects[@project].targets[1])
+            # file_ref.add(:to => @app.projects[@project].targets[1])
             break
           end
         end
@@ -61,19 +66,28 @@ class XcodeProxy
     group_ref = find_group(root_group, group)
     return if group_ref == nil
 
-    file_refs = group_ref.file_references.get
+    if @version == 4 then 
+        file_refs = group_ref.Xcode_3_file_references.get
+    else
+        file_refs = group_ref.file_references.get
+    end
     file_refs.each do |fref|
       fn = fref.name.get
       if fn == filename then 
         id = fref.id_.get
-        group_ref.delete(group_ref.file_references.ID(id))
+        if @version == 4 then 
+            p group_ref.Xcode_3_file_references.ID(id).path.get
+            group_ref.delete(group_ref.Xcode_3_file_references.ID(id))
+        else
+            group_ref.delete(group_ref.file_references.ID(id))
+        end
       end
     end
   end
 
   def mkgroup(group)
     @app.projects[@project].root_group.make(
-      :new => :group, 
+      :new => :Xcode_3_group, 
       :with_properties => {:name => group}
     )
   end
@@ -91,7 +105,7 @@ class XcodeProxy
       return
     end
     id = group_ref.id_.get
-    root_group.delete(root_group.groups.ID(id))
+    root_group.delete(root_group.Xcode_3_groups.ID(id))
   end
 
 private
@@ -120,9 +134,10 @@ private
     items = group_ref.item_references.get
     items.each do |item| 
       item_class = item.class_.get
-      if item_class == :group then
+      if (item_class == :group) || (item_class == :Xcode_3_group) then
         list_group(item, verbose, indent + 1)
-      elsif item_class == :file_reference then
+      elsif (item_class == :file_reference) || 
+          (item_class == :Xcode_3_file_reference) then
         print_fileref(item, verbose, indent + 1)
       else
         print "  " * (indent+1)
@@ -135,7 +150,7 @@ private
     items = group_ref.item_references.get
     items.each do |item| 
       item_class = item.class_.get
-      if item_class == :group then
+      if (item_class == :group) || (item_class == :Xcode_3_group) then
         name = item.name.get
         return item if (name == group_name)
       end
