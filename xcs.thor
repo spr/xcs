@@ -20,6 +20,16 @@ class XcodeProxy
         @project = pr.name.get
       end
     end
+    if @project == nil then
+      puts "Failed to open project"
+      puts "Project path: #{path}"
+      puts "XCode projects' pathes:"
+      prjs.each do |pr|
+        tmp_path = pr.path.get
+        puts "  #{tmp_path}"
+      end
+      exit(1)
+    end
   end
 
   def close
