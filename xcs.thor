@@ -175,10 +175,10 @@ private
             break
           end
         end
-        if current_group_ref.name.get != group_to_find then
-          puts "ERROR: Could not find group: #{group_to_find}"
-          return nil
-        end
+      end
+      if current_group_ref.name.get != group_to_find then
+        puts "ERROR: Could not find group: #{group_to_find}"
+        return nil
       end
     end
 
