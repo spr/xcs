@@ -39,14 +39,20 @@ class XcodeProxy
     end
   end
 
-  def list(verbose = false)
-    root_group = @app.projects[@project].root_group
-    list_group(root_group, verbose)
+  def list(group = nil, verbose = false)
+    if group == nil then
+      root_group = @app.projects[@project].root_group
+      list_group(root_group, verbose)
+    else
+      root_group = @app.projects[@project].root_group
+      group_ref = find_group_by_path(root_group, group)
+      list_group(group_ref, verbose) if group != nil
+    end
   end
 
   def add(path, group)
     root_group = @app.projects[@project].root_group
-    group_ref = find_group(root_group, group)
+    group_ref = find_group_by_path(root_group, group)
     p group_ref
     if group_ref != nil then
       file = File.basename(path)
@@ -73,7 +79,7 @@ class XcodeProxy
     filename = File.basename(path)
     group = File.dirname(path)
     root_group = @app.projects[@project].root_group
-    group_ref = find_group(root_group, group)
+    group_ref = find_group_by_path(root_group, group)
     return if group_ref == nil
 
     if @version == 4 then 
@@ -104,7 +110,7 @@ class XcodeProxy
 
   def rmgroup(group)
     root_group = @app.projects[@project].root_group
-    group_ref = find_group(root_group, group)
+    group_ref = find_group_by_path(root_group, group)
     if group_ref == nil then
       puts "Group #{group} not found"
       return
@@ -156,17 +162,30 @@ private
     end
   end
 
-  def find_group(group_ref, group_name)
-    items = group_ref.item_references.get
-    items.each do |item| 
-      item_class = item.class_.get
-      if (item_class == :group) || (item_class == :Xcode_3_group) then
-        name = item.name.get
-        return item if (name == group_name)
+  def find_group_by_path(base_group_ref, path)
+    sub_groups = path.split("/")
+    current_group_ref = base_group_ref
+    sub_groups.each do |group_to_find|
+      items = current_group_ref.item_references.get
+      items.each do |item|
+        item_class = item.class_.get
+        if (item_class == :group) || (item_class == :Xcode_3_group) then
+          if item.name.get == group_to_find then
+            current_group_ref = item
+            break
+          end
+        end
+        if current_group_ref.name.get != group_to_find then
+          puts "ERROR: Could not find group: #{group_to_find}"
+          return nil
+        end
       end
     end
-    return
+
+    return current_group_ref
+
   end
+
 end
 
 class Xcs < Thor
@@ -177,11 +196,10 @@ class Xcs < Thor
   end
 
   method_options :verbose => :boolean
-  desc 'list [--verbose]',  'List project contents'
-
-  def list
+  desc 'list [Group] [--verbose]',  'List project contents'
+  def list(group = nil)
     open_project
-    @proxy.list(options.verbose?)
+    @proxy.list(group, options.verbose?)
   end
 
   desc 'add File [Group]',  'Add file to a group. By default adds to "Source"'
